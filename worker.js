@@ -492,13 +492,19 @@ function getHtml() {
       });
     }
 
-    function updateCanvasSize() {
-      const maxWidth = Math.min(window.innerWidth - 56, 900);
-      cellSize = Math.max(6, Math.floor(maxWidth / state.width));
-      canvas.width = state.width * cellSize;
-      canvas.height = state.height * cellSize;
-      drawBoard();
-    }
+    function updateHoverInfo(x, y) {
+  if (!state || x < 0 || y < 0 || x >= state.width || y >= state.height) {
+    hoverInfoEl.textContent = "Наведи на пиксель, чтобы увидеть автора.";
+    return;
+  }
+  const color = state.board[y][x];
+  const owner = state.owners?.[y]?.[x];
+  if (!owner || color === "#ffffff") {
+    hoverInfoEl.textContent = "(" + x + ", " + y + ") — пусто";
+    return;
+  }
+  hoverInfoEl.textContent = "(" + x + ", " + y + ") — поставил: " + owner;
+}
 
     function drawBoard() {
       if (!state) return;
