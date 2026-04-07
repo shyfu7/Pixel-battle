@@ -190,25 +190,36 @@ function getHtml() {
 
     * { box-sizing: border-box; }
 
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
       font-family: Inter, system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
     }
 
+    body {
+      min-height: 100vh;
+    }
+
     .app {
       display: grid;
       grid-template-columns: 1fr 240px;
+      align-items: start;
       min-height: 100vh;
     }
 
     .main {
       padding: 16px;
+      padding-bottom: 44px;
       overflow: auto;
     }
 
     .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
       border-left: 1px solid rgba(255,255,255,0.08);
       background: var(--panel);
       padding: 16px;
@@ -347,12 +358,20 @@ function getHtml() {
     }
 
     .hover-info {
-      margin-top: 10px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.04);
-      font-size: 14px;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      padding: 6px 10px;
+      background: rgba(15,17,21,.96);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      line-height: 1.2;
       color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .mobile-palette {
@@ -361,7 +380,7 @@ function getHtml() {
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 10;
+      z-index: 40;
       background: rgba(15,17,21,.96);
       backdrop-filter: blur(10px);
       border-top: 1px solid rgba(255,255,255,0.08);
@@ -373,6 +392,8 @@ function getHtml() {
       .sidebar { display: none; }
       .mobile-palette { display: block; }
       .palette { grid-template-columns: repeat(10, 1fr); }
+      .main { padding-bottom: 90px; }
+      .hover-info { bottom: 58px; }
     }
   </style>
 </head>
@@ -393,8 +414,6 @@ function getHtml() {
       <div class="board-wrap">
         <canvas id="board"></canvas>
       </div>
-
-      <div class="hover-info" id="hoverInfo">Наведи на пиксель, чтобы увидеть автора.</div>
     </main>
 
     <aside class="sidebar">
@@ -429,6 +448,8 @@ function getHtml() {
   <div class="mobile-palette">
     <div class="palette" id="paletteMobile"></div>
   </div>
+
+  <div class="hover-info" id="hoverInfo">Наведи на пиксель, чтобы увидеть координаты и автора.</div>
 
   <script>
     const STORAGE_KEY = "pixel-battle-nick";
@@ -616,7 +637,7 @@ function getHtml() {
 
     function updateHoverInfo(x, y) {
       if (!state || x < 0 || y < 0 || x >= state.width || y >= state.height) {
-        hoverInfoEl.textContent = "Наведи на пиксель, чтобы увидеть автора.";
+        hoverInfoEl.textContent = "Наведи на пиксель, чтобы увидеть координаты и автора.";
         return;
       }
 
@@ -624,11 +645,11 @@ function getHtml() {
       const owner = state.owners && state.owners[y] ? state.owners[y][x] : null;
 
       if (!owner || color === "#ffffff") {
-        hoverInfoEl.textContent = "(" + x + ", " + y + ") — пусто";
+        hoverInfoEl.textContent = "x: " + x + " | y: " + y + " | пусто";
         return;
       }
 
-      hoverInfoEl.textContent = "(" + x + ", " + y + ") — поставил: " + owner;
+      hoverInfoEl.textContent = "x: " + x + " | y: " + y + " | автор: " + owner;
     }
 
     function addSelectedPixel(x, y) {
