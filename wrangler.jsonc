@@ -1,0 +1,19 @@
+{
+  "name": "pixel-battle",
+  "main": "worker.js",
+  "compatibility_date": "2026-04-07",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PIXEL_BATTLE",
+        "class_name": "PixelBattleRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["PixelBattleRoom"]
+    }
+  ]
+}
