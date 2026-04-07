@@ -71,16 +71,19 @@ export class PixelBattleRoom {
       }
 
       const now = Date.now();
-      const cooldownKey = `cooldown:${nick.toLowerCase()}`;
+      const cooldownKey = "cooldown:" + nick.toLowerCase();
       const lastPlaced = (await this.state.storage.get(cooldownKey)) || 0;
       const cooldownMs = 20_000;
       const leftMs = lastPlaced + cooldownMs - now;
 
       if (leftMs > 0) {
-        return this.json({
-          error: `Подожди ${Math.ceil(leftMs / 1000)} сек.`,
-          cooldownLeftMs: leftMs,
-        }, 429);
+        return this.json(
+          {
+            error: "Подожди " + Math.ceil(leftMs / 1000) + " сек.",
+            cooldownLeftMs: leftMs,
+          },
+          429
+        );
       }
 
       const state = await this.getState();
@@ -113,6 +116,7 @@ export class PixelBattleRoom {
       return this.json({
         ok: true,
         board,
+        owners,
         cooldownLeftMs: cooldownMs,
       });
     }
@@ -123,14 +127,21 @@ export class PixelBattleRoom {
   async getState() {
     let board = await this.state.storage.get("board");
     let owners = await this.state.storage.get("owners");
+
     if (!board) {
-      board = Array.from({ length: this.height }, () => Array.from({ length: this.width }, () => "#ffffff"));
+      board = Array.from({ length: this.height }, () =>
+        Array.from({ length: this.width }, () => "#ffffff")
+      );
       await this.state.storage.put("board", board);
     }
+
     if (!owners) {
-      owners = Array.from({ length: this.height }, () => Array.from({ length: this.width }, () => null));
+      owners = Array.from({ length: this.height }, () =>
+        Array.from({ length: this.width }, () => null)
+      );
       await this.state.storage.put("owners", owners);
     }
+
     return {
       width: this.width,
       height: this.height,
@@ -178,6 +189,7 @@ function getHtml() {
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Inter, system-ui, sans-serif;
@@ -325,6 +337,15 @@ function getHtml() {
       font-size: 14px;
       line-height: 1.4;
     }
+
+    .status.error { color: var(--danger); }
+    .status.ok { color: var(--ok); }
+
+    .nick {
+      font-weight: 700;
+      color: #fff;
+    }
+
     .hover-info {
       margin-top: 10px;
       padding: 10px 12px;
@@ -332,13 +353,6 @@ function getHtml() {
       background: rgba(255,255,255,0.04);
       font-size: 14px;
       color: var(--text);
-    }
-
-    .status.error { color: var(--danger); }
-    .status.ok { color: var(--ok); }
-    .nick {
-      font-weight: 700;
-      color: #fff;
     }
 
     .mobile-palette {
@@ -379,6 +393,7 @@ function getHtml() {
       <div class="board-wrap">
         <canvas id="board"></canvas>
       </div>
+
       <div class="hover-info" id="hoverInfo">Наведи на пиксель, чтобы увидеть автора.</div>
     </main>
 
@@ -475,6 +490,7 @@ function getHtml() {
     function renderPalette() {
       paletteEl.innerHTML = "";
       paletteMobileEl.innerHTML = "";
+
       state.palette.forEach((color) => {
         const makeSwatch = () => {
           const btn = document.createElement("button");
@@ -487,27 +503,23 @@ function getHtml() {
           });
           return btn;
         };
+
         paletteEl.appendChild(makeSwatch());
         paletteMobileEl.appendChild(makeSwatch());
       });
     }
 
-    function updateHoverInfo(x, y) {
-  if (!state || x < 0 || y < 0 || x >= state.width || y >= state.height) {
-    hoverInfoEl.textContent = "Наведи на пиксель, чтобы увидеть автора.";
-    return;
-  }
-  const color = state.board[y][x];
-  const owner = state.owners?.[y]?.[x];
-  if (!owner || color === "#ffffff") {
-    hoverInfoEl.textContent = "(" + x + ", " + y + ") — пусто";
-    return;
-  }
-  hoverInfoEl.textContent = "(" + x + ", " + y + ") — поставил: " + owner;
-}
+    function updateCanvasSize() {
+      const maxWidth = Math.min(window.innerWidth - 56, 900);
+      cellSize = Math.max(6, Math.floor(maxWidth / state.width));
+      canvas.width = state.width * cellSize;
+      canvas.height = state.height * cellSize;
+      drawBoard();
+    }
 
     function drawBoard() {
       if (!state) return;
+
       for (let y = 0; y < state.height; y++) {
         for (let x = 0; x < state.width; x++) {
           ctx.fillStyle = state.board[y][x];
@@ -517,12 +529,14 @@ function getHtml() {
 
       ctx.strokeStyle = "rgba(0,0,0,0.08)";
       ctx.lineWidth = 1;
+
       for (let x = 0; x <= state.width; x++) {
         ctx.beginPath();
         ctx.moveTo(x * cellSize + 0.5, 0);
         ctx.lineTo(x * cellSize + 0.5, canvas.height);
         ctx.stroke();
       }
+
       for (let y = 0; y <= state.height; y++) {
         ctx.beginPath();
         ctx.moveTo(0, y * cellSize + 0.5);
@@ -540,6 +554,7 @@ function getHtml() {
     function renderSelected() {
       selectedCountEl.textContent = String(selectedPixels.length);
       selectedListEl.innerHTML = "";
+
       if (selectedPixels.length === 0) {
         const div = document.createElement("div");
         div.className = "hint";
@@ -552,7 +567,8 @@ function getHtml() {
       selectedPixels.forEach((pixel, index) => {
         const row = document.createElement("div");
         row.className = "pixel-item";
-        row.innerHTML = '<span>(' + pixel.x + ', ' + pixel.y + ') ' + pixel.color + '</span>';
+        row.innerHTML = "<span>(" + pixel.x + ", " + pixel.y + ") " + pixel.color + "</span>";
+
         const removeBtn = document.createElement("button");
         removeBtn.className = "btn secondary";
         removeBtn.textContent = "X";
@@ -561,27 +577,33 @@ function getHtml() {
           selectedPixels.splice(index, 1);
           renderSelected();
         });
+
         row.appendChild(removeBtn);
         selectedListEl.appendChild(row);
       });
+
       drawBoard();
     }
 
-    function hashBoard(board) {
-      return JSON.stringify(board);
+    function hashBoard(board, owners) {
+      return JSON.stringify({ board: board, owners: owners });
     }
 
     async function loadState(showStatus = true) {
       const res = await fetch("/api/state", { cache: "no-store" });
       const data = await res.json();
-      const newHash = hashBoard(data.board);
+      const newHash = hashBoard(data.board, data.owners);
+
       state = data;
+
       if (newHash !== lastBoardHash) {
         lastBoardHash = newHash;
         updateCanvasSize();
       }
+
       renderPalette();
       renderSelected();
+
       if (showStatus) setStatus("Готово");
     }
 
@@ -589,7 +611,7 @@ function getHtml() {
       const rect = canvas.getBoundingClientRect();
       const x = Math.floor((event.clientX - rect.left) / cellSize);
       const y = Math.floor((event.clientY - rect.top) / cellSize);
-      return { x, y };
+      return { x: x, y: y };
     }
 
     function updateHoverInfo(x, y) {
@@ -597,17 +619,21 @@ function getHtml() {
         hoverInfoEl.textContent = "Наведи на пиксель, чтобы увидеть автора.";
         return;
       }
+
       const color = state.board[y][x];
-      const owner = state.owners?.[y]?.[x];
+      const owner = state.owners && state.owners[y] ? state.owners[y][x] : null;
+
       if (!owner || color === "#ffffff") {
-        hoverInfoEl.textContent = `(${x}, ${y}) — пусто`;
+        hoverInfoEl.textContent = "(" + x + ", " + y + ") — пусто";
         return;
       }
-      hoverInfoEl.textContent = `(${x}, ${y}) — поставил: ${owner}`;
+
+      hoverInfoEl.textContent = "(" + x + ", " + y + ") — поставил: " + owner;
     }
 
     function addSelectedPixel(x, y) {
       const existingIndex = selectedPixels.findIndex((p) => p.x === x && p.y === y);
+
       if (existingIndex >= 0) {
         selectedPixels[existingIndex].color = selectedColor;
         renderSelected();
@@ -619,33 +645,39 @@ function getHtml() {
         return;
       }
 
-      selectedPixels.push({ x, y, color: selectedColor });
+      selectedPixels.push({ x: x, y: y, color: selectedColor });
       renderSelected();
     }
 
     async function sendPixels() {
       const nick = getNick();
+
       if (!nick) {
         setStatus("Сначала задай ник", true);
         return;
       }
+
       if (Date.now() < cooldownUntil) {
         setStatus("КД ещё не закончился", true);
         return;
       }
+
       if (selectedPixels.length === 0) {
         setStatus("Нет выбранных пикселей", true);
         return;
       }
 
       sendBtn.disabled = true;
+
       try {
         const res = await fetch("/api/place", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ nick, pixels: selectedPixels }),
+          body: JSON.stringify({ nick: nick, pixels: selectedPixels }),
         });
+
         const data = await res.json();
+
         if (!res.ok) {
           if (data.cooldownLeftMs) {
             cooldownUntil = Date.now() + data.cooldownLeftMs;
@@ -655,7 +687,8 @@ function getHtml() {
         }
 
         state.board = data.board;
-        lastBoardHash = hashBoard(data.board);
+        state.owners = data.owners;
+        lastBoardHash = hashBoard(data.board, data.owners);
         cooldownUntil = Date.now() + (data.cooldownLeftMs || 20000);
         selectedPixels = [];
         renderSelected();
@@ -676,8 +709,8 @@ function getHtml() {
 
     canvas.addEventListener("mousemove", (event) => {
       if (!state) return;
-      const { x, y } = getCanvasCoords(event);
-      updateHoverInfo(x, y);
+      const coords = getCanvasCoords(event);
+      updateHoverInfo(coords.x, coords.y);
     });
 
     canvas.addEventListener("mouseleave", () => {
@@ -686,17 +719,22 @@ function getHtml() {
 
     canvas.addEventListener("click", (event) => {
       if (!state) return;
-      const { x, y } = getCanvasCoords(event);
+      const coords = getCanvasCoords(event);
+      const x = coords.x;
+      const y = coords.y;
+
       if (x < 0 || y < 0 || x >= state.width || y >= state.height) return;
       addSelectedPixel(x, y);
     });
 
     sendBtn.addEventListener("click", sendPixels);
+
     clearBtn.addEventListener("click", () => {
       selectedPixels = [];
       renderSelected();
       setStatus("Выбор очищен");
     });
+
     saveNickBtn.addEventListener("click", saveNick);
     window.addEventListener("resize", () => state && updateCanvasSize());
 
