@@ -85,6 +85,7 @@ export class PixelBattleRoom {
 
       const state = await this.getState();
       const board = state.board;
+      const owners = state.owners;
 
       for (const pixel of pixels) {
         const x = Number(pixel.x);
@@ -102,9 +103,11 @@ export class PixelBattleRoom {
 
       for (const pixel of pixels) {
         board[pixel.y][pixel.x] = pixel.color;
+        owners[pixel.y][pixel.x] = nick;
       }
 
       await this.state.storage.put("board", board);
+      await this.state.storage.put("owners", owners);
       await this.state.storage.put(cooldownKey, now);
 
       return this.json({
@@ -119,15 +122,21 @@ export class PixelBattleRoom {
 
   async getState() {
     let board = await this.state.storage.get("board");
+    let owners = await this.state.storage.get("owners");
     if (!board) {
       board = Array.from({ length: this.height }, () => Array.from({ length: this.width }, () => "#ffffff"));
       await this.state.storage.put("board", board);
+    }
+    if (!owners) {
+      owners = Array.from({ length: this.height }, () => Array.from({ length: this.width }, () => null));
+      await this.state.storage.put("owners", owners);
     }
     return {
       width: this.width,
       height: this.height,
       palette: this.palette,
       board,
+      owners,
       maxPixelsPerTurn: 3,
       cooldownSec: 20,
     };
@@ -167,6 +176,7 @@ function getHtml() {
       --ok: #38d39f;
       --cell-size: 10px;
     }
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -174,15 +184,18 @@ function getHtml() {
       background: var(--bg);
       color: var(--text);
     }
+
     .app {
       display: grid;
       grid-template-columns: 1fr 240px;
       min-height: 100vh;
     }
+
     .main {
       padding: 16px;
       overflow: auto;
     }
+
     .sidebar {
       border-left: 1px solid rgba(255,255,255,0.08);
       background: var(--panel);
@@ -191,16 +204,19 @@ function getHtml() {
       flex-direction: column;
       gap: 16px;
     }
+
     .card {
       background: var(--panel-2);
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 16px;
       padding: 14px;
     }
+
     h1, h2, p { margin: 0; }
     h1 { font-size: 24px; }
     h2 { font-size: 16px; margin-bottom: 12px; }
     .sub { color: var(--muted); margin-top: 8px; }
+
     .topbar {
       display: flex;
       align-items: center;
@@ -209,6 +225,7 @@ function getHtml() {
       margin-bottom: 16px;
       flex-wrap: wrap;
     }
+
     .board-wrap {
       background: #0b0d11;
       border: 1px solid rgba(255,255,255,0.08);
@@ -218,6 +235,7 @@ function getHtml() {
       max-width: 100%;
       overflow: auto;
     }
+
     canvas {
       image-rendering: pixelated;
       image-rendering: crisp-edges;
@@ -226,11 +244,13 @@ function getHtml() {
       border-radius: 10px;
       cursor: crosshair;
     }
+
     .palette {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 10px;
     }
+
     .swatch {
       width: 100%;
       aspect-ratio: 1;
@@ -239,10 +259,12 @@ function getHtml() {
       cursor: pointer;
       transition: transform .12s ease, border-color .12s ease;
     }
+
     .swatch.active {
       border-color: #fff;
       transform: scale(1.05);
     }
+
     .selected-list {
       display: grid;
       gap: 8px;
@@ -250,6 +272,7 @@ function getHtml() {
       max-height: 160px;
       overflow: auto;
     }
+
     .pixel-item {
       display: flex;
       align-items: center;
@@ -260,7 +283,11 @@ function getHtml() {
       padding: 8px 10px;
       font-size: 13px;
     }
-    button, input { font: inherit; }
+
+    button, input {
+      font: inherit;
+    }
+
     .btn {
       border: 0;
       border-radius: 12px;
@@ -270,13 +297,19 @@ function getHtml() {
       font-weight: 700;
       cursor: pointer;
     }
-    .btn.secondary { background: #30384a; }
+
+    .btn.secondary {
+      background: #30384a;
+    }
+
     .btn:disabled {
       cursor: not-allowed;
       opacity: .65;
     }
+
     .stack { display: grid; gap: 10px; }
     .row { display: flex; gap: 10px; }
+
     input {
       width: 100%;
       border: 1px solid rgba(255,255,255,0.1);
@@ -286,17 +319,28 @@ function getHtml() {
       padding: 12px 14px;
       outline: none;
     }
+
     .hint, .status {
       color: var(--muted);
       font-size: 14px;
       line-height: 1.4;
     }
+    .hover-info {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      font-size: 14px;
+      color: var(--text);
+    }
+
     .status.error { color: var(--danger); }
     .status.ok { color: var(--ok); }
     .nick {
       font-weight: 700;
       color: #fff;
     }
+
     .mobile-palette {
       display: none;
       position: sticky;
@@ -309,6 +353,7 @@ function getHtml() {
       border-top: 1px solid rgba(255,255,255,0.08);
       padding: 12px;
     }
+
     @media (max-width: 900px) {
       .app { grid-template-columns: 1fr; }
       .sidebar { display: none; }
@@ -334,6 +379,7 @@ function getHtml() {
       <div class="board-wrap">
         <canvas id="board"></canvas>
       </div>
+      <div class="hover-info" id="hoverInfo">Наведи на пиксель, чтобы увидеть автора.</div>
     </main>
 
     <aside class="sidebar">
@@ -384,6 +430,7 @@ function getHtml() {
     const nickViewEl = document.getElementById("nickView");
     const nickInputEl = document.getElementById("nickInput");
     const saveNickBtn = document.getElementById("saveNickBtn");
+    const hoverInfoEl = document.getElementById("hoverInfo");
 
     let state = null;
     let cellSize = 10;
@@ -499,7 +546,7 @@ function getHtml() {
       selectedPixels.forEach((pixel, index) => {
         const row = document.createElement("div");
         row.className = "pixel-item";
-        row.innerHTML = "<span>(" + pixel.x + ", " + pixel.y + ") " + pixel.color + "</span>";
+        row.innerHTML = '<span>(' + pixel.x + ', ' + pixel.y + ') ' + pixel.color + '</span>';
         const removeBtn = document.createElement("button");
         removeBtn.className = "btn secondary";
         removeBtn.textContent = "X";
@@ -537,6 +584,20 @@ function getHtml() {
       const x = Math.floor((event.clientX - rect.left) / cellSize);
       const y = Math.floor((event.clientY - rect.top) / cellSize);
       return { x, y };
+    }
+
+    function updateHoverInfo(x, y) {
+      if (!state || x < 0 || y < 0 || x >= state.width || y >= state.height) {
+        hoverInfoEl.textContent = "Наведи на пиксель, чтобы увидеть автора.";
+        return;
+      }
+      const color = state.board[y][x];
+      const owner = state.owners?.[y]?.[x];
+      if (!owner || color === "#ffffff") {
+        hoverInfoEl.textContent = `(${x}, ${y}) — пусто`;
+        return;
+      }
+      hoverInfoEl.textContent = `(${x}, ${y}) — поставил: ${owner}`;
     }
 
     function addSelectedPixel(x, y) {
@@ -606,6 +667,16 @@ function getHtml() {
       cooldownTextEl.textContent = "КД: " + left + " сек";
       sendBtn.disabled = left > 0;
     }
+
+    canvas.addEventListener("mousemove", (event) => {
+      if (!state) return;
+      const { x, y } = getCanvasCoords(event);
+      updateHoverInfo(x, y);
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      updateHoverInfo(-1, -1);
+    });
 
     canvas.addEventListener("click", (event) => {
       if (!state) return;
